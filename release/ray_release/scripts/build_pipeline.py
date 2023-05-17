@@ -245,30 +245,42 @@ def _build_anyscale_byod_images(tests: List[Tuple[Test, bool]]) -> None:
     """
     Builds the Anyscale BYOD images for the given tests.
     """
-    ray_images = {test.get_ray_image() for test, _ in tests if test.is_byod_cluster()}
     s3 = boto3.client("s3")
     s3.download_file(
-        Bucket="ray-release-automation-results",
-        Key="dataplane.tgz",
-        Filename="dataplane.tgz",
+        Bucket=S3_BUCKET,
+        Key=DATAPLANE_FILENAME,
+        Filename=DATAPLANE_FILENAME,
     )
-    for ray_image in ray_images:
-        logger.info(f"Building BYOD for {ray_image}")
-        subprocess.check_call(
-            [
-                "docker",
-                "build",
-                "--build-arg",
-                f"BASE_IMAGE={ray_image}",
-                "-t",
-                ray_image.replace("rayproject", "anyscale"),
-                "-",
-                "<",
-                "dataplane.tgz",
-            ],
-            env={"DOCKER_BUILDKIT": "1"},
-        )
-    # TODO(aslonnie): Build anyscale byod images for the given ray images
+    built = {}
+    for test, _ in tests:
+        break
+        if not test.is_byod_cluster():
+            continue
+        ray_image = test.get_ray_image()
+        if ray_image in built:
+            continue
+        byod_image = test.get_anyscale_byod_image()
+        logger.info(f"Building {byod_image} from {ray_image}")
+        with open(DATAPLANE_FILENAME, "rb") as build_file:
+            subprocess.check_call(
+                [
+                    "docker",
+                    "build",
+                    "--build-arg",
+                    f"BASE_IMAGE={ray_image}",
+                    "-t",
+                    byod_image,
+                    "-",
+                ],
+                stdin=build_file,
+                stdout=subprocess.STDERR,
+                env={"DOCKER_BUILDKIT": "1"},
+            )
+            subprocess.check_call(
+                ["docker", "push", byod_image],
+                stdout=subprocess.STDERR,
+            )
+            built.add(ray_image)
     return
 
 
