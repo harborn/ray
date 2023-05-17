@@ -45,6 +45,18 @@ class Test(dict):
         """
         return self.get("python", ".".join(str(v) for v in DEFAULT_PYTHON_VERSION))
 
+    def _get_ray_image_for_pr(self) -> str:
+        """
+        Returns the ray docker image built for a PR
+        """
+        commit = os.environ.get("BUILDKITE_COMMIT")
+        if not commit:
+            raise ValueError("BUILDKITE_COMMIT is not set for a PR build")
+        if self.get_byod_type() == "gpu":
+            return f"{RAY_CI_ERC_REPO}:oss-ci-gpu_{commit}"
+        else:
+            return f"{RAY_CI_ERC_REPO}:oss-ci-build_{commit}"
+
     def get_ray_image(self) -> str:
         """
         Returns the ray docker image to use for this test. If the commit hash is not
