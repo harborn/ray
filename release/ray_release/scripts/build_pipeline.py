@@ -241,6 +241,21 @@ def main(
     print(steps_str)
 
 
+def _byod_image_exist(image_tag: str) -> bool:
+    """
+    Checks if the given Anyscale BYOD image exists.
+    """
+    client = boto3.client("ecr")
+    try:
+        client.describe_images(
+            repositoryName="anyscale",
+            imageIds=[{"imageTag": image_tag}],
+        )
+        return True
+    except client.exceptions.ImageNotFoundException:
+        return False
+
+
 def _build_anyscale_byod_images(tests: List[Tuple[Test, bool]]) -> None:
     """
     Builds the Anyscale BYOD images for the given tests.
@@ -251,36 +266,49 @@ def _build_anyscale_byod_images(tests: List[Tuple[Test, bool]]) -> None:
         Key=DATAPLANE_FILENAME,
         Filename=DATAPLANE_FILENAME,
     )
-    built = {}
+    to_be_built = {}
     for test, _ in tests:
         break
         if not test.is_byod_cluster():
             continue
         ray_image = test.get_ray_image()
-        if ray_image in built:
-            continue
-        byod_image = test.get_anyscale_byod_image()
-        logger.info(f"Building {byod_image} from {ray_image}")
-        with open(DATAPLANE_FILENAME, "rb") as build_file:
-            subprocess.check_call(
-                [
-                    "docker",
-                    "build",
-                    "--build-arg",
-                    f"BASE_IMAGE={ray_image}",
-                    "-t",
-                    byod_image,
-                    "-",
-                ],
-                stdin=build_file,
-                stdout=subprocess.STDERR,
-                env={"DOCKER_BUILDKIT": "1"},
-            )
-            subprocess.check_call(
-                ["docker", "push", byod_image],
-                stdout=subprocess.STDERR,
-            )
-            built.add(ray_image)
+        to_be_built[ray_image] = test.get_anyscale_byod_image()
+
+    timeout = 0
+    # Wait 2 hours for ray images to be available
+    while to_be_built or timeout > 7200:
+        for ray_image, byod_image in to_be_built.items():
+            if _byod_image_exist(byod_image):
+                to_be_built.pop(ray_image)
+                continue
+            logger.info(f"Building {byod_image} from {ray_image}")
+            with open(DATAPLANE_FILENAME, "rb") as build_file:
+                try:
+                    subprocess.check_call(
+                        [
+                            "docker",
+                            "build",
+                            "--build-arg",
+                            f"BASE_IMAGE={ray_image}",
+                            "-t",
+                            byod_image,
+                            "-",
+                        ],
+                        stdin=build_file,
+                        stdout=subprocess.DEVNULL,
+                        env={"DOCKER_BUILDKIT": "1"},
+                    )
+                except subprocess.CalledProcessError as e:
+                    # If the ray image does not exist yet, we will retry later
+                    logger.error(f"Failed to build {byod_image}: {e.output}")
+                    time.sleep(10)
+                    timeout += 10
+                    continue
+                subprocess.check_call(
+                    ["docker", "push", byod_image],
+                    stdout=subprocess.DEVNULL,
+                )
+                to_be_built.pop(ray_image)
     return
 
 
