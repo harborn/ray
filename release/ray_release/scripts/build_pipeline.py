@@ -278,7 +278,7 @@ def _build_anyscale_byod_images(tests: List[Tuple[Test, bool]]) -> None:
     # Wait 2 hours for ray images to be available
     while to_be_built or timeout > 7200:
         for ray_image, byod_image in to_be_built.items():
-            if _byod_image_exist(byod_image.replace(DATAPLANE_ECR_REPO, "")):
+            if _byod_image_exist(byod_image.replace(f"{DATAPLANE_ECR_REPO}:", "")):
                 to_be_built.pop(ray_image)
                 continue
             logger.info(f"Building {byod_image} from {ray_image}")
