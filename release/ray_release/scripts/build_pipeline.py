@@ -299,7 +299,7 @@ def _build_anyscale_byod_images(tests: List[Tuple[Test, bool]]) -> None:
                         stdout=subprocess.DEVNULL,
                         env={"DOCKER_BUILDKIT": "1"},
                     )
-                except subprocess.CalledProcessError as e:
+                except subprocess.CalledProcessError:
                     # If the ray image does not exist yet, we will retry later
                     logger.info(f"Retry for another {7200 - timeout}s ...")
                     time.sleep(30)
