@@ -277,7 +277,7 @@ def _build_anyscale_byod_images(tests: List[Tuple[Test, bool]]) -> None:
 
     timeout = 0
     # Wait up to 2 hours for ray images to be available
-    while len(built) < len(to_be_built) or timeout > 7200:
+    while len(built) < len(to_be_built) and timeout < 7200:
         for ray_image, byod_image in to_be_built.items():
             if _byod_image_exist(byod_image.replace(f"{DATAPLANE_ECR_REPO}:", "")):
                 to_be_built.pop(ray_image)
@@ -301,9 +301,9 @@ def _build_anyscale_byod_images(tests: List[Tuple[Test, bool]]) -> None:
                     )
                 except subprocess.CalledProcessError as e:
                     # If the ray image does not exist yet, we will retry later
-                    logger.error(f"Failed to build {byod_image}: {e.output}")
-                    time.sleep(10)
-                    timeout += 10
+                    logger.info(f"Retry for another {7200 - timeout}s ...")
+                    time.sleep(30)
+                    timeout += 30
                     continue
                 subprocess.check_call(
                     ["docker", "push", byod_image],
