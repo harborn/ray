@@ -267,6 +267,7 @@ def _build_anyscale_byod_images(tests: List[Tuple[Test, bool]]) -> None:
         Filename=DATAPLANE_FILENAME,
     )
     to_be_built = {}
+    built = set()
     for test, _ in tests:
         break
         if not test.is_byod_cluster():
@@ -276,7 +277,7 @@ def _build_anyscale_byod_images(tests: List[Tuple[Test, bool]]) -> None:
 
     timeout = 0
     # Wait up to 2 hours for ray images to be available
-    while to_be_built or timeout > 7200:
+    while len(built) < len(to_be_built) or timeout > 7200:
         for ray_image, byod_image in to_be_built.items():
             if _byod_image_exist(byod_image.replace(f"{DATAPLANE_ECR_REPO}:", "")):
                 to_be_built.pop(ray_image)
@@ -308,7 +309,7 @@ def _build_anyscale_byod_images(tests: List[Tuple[Test, bool]]) -> None:
                     ["docker", "push", byod_image],
                     stdout=subprocess.DEVNULL,
                 )
-                to_be_built.pop(ray_image)
+                built.add(ray_image)
     return
 
 
