@@ -6,7 +6,6 @@ import sys
 import tempfile
 from typing import Optional
 
-import boto3
 import click
 
 from ray_release.buildkite.filter import filter_tests, group_tests
@@ -239,78 +238,6 @@ def main(
 
     steps_str = json.dumps(steps)
     print(steps_str)
-
-
-def _byod_image_exist(image_tag: str) -> bool:
-    """
-    Checks if the given Anyscale BYOD image exists.
-    """
-    client = boto3.client("ecr")
-    try:
-        client.describe_images(
-            repositoryName="anyscale",
-            imageIds=[{"imageTag": image_tag}],
-        )
-        return True
-    except client.exceptions.ImageNotFoundException:
-        return False
-
-
-def _build_anyscale_byod_images(tests: List[Tuple[Test, bool]]) -> None:
-    """
-    Builds the Anyscale BYOD images for the given tests.
-    """
-    s3 = boto3.client("s3")
-    s3.download_file(
-        Bucket=S3_BUCKET,
-        Key=DATAPLANE_FILENAME,
-        Filename=DATAPLANE_FILENAME,
-    )
-    to_be_built = {}
-    built = set()
-    for test, _ in tests:
-        break
-        if not test.is_byod_cluster():
-            continue
-        ray_image = test.get_ray_image()
-        to_be_built[ray_image] = test.get_anyscale_byod_image()
-
-    timeout = 0
-    # Wait up to 2 hours for ray images to be available
-    while len(built) < len(to_be_built) and timeout < 7200:
-        for ray_image, byod_image in to_be_built.items():
-            if _byod_image_exist(byod_image.replace(f"{DATAPLANE_ECR_REPO}:", "")):
-                to_be_built.pop(ray_image)
-                continue
-            logger.info(f"Building {byod_image} from {ray_image}")
-            with open(DATAPLANE_FILENAME, "rb") as build_file:
-                try:
-                    subprocess.check_call(
-                        [
-                            "docker",
-                            "build",
-                            "--build-arg",
-                            f"BASE_IMAGE={ray_image}",
-                            "-t",
-                            byod_image,
-                            "-",
-                        ],
-                        stdin=build_file,
-                        stdout=subprocess.DEVNULL,
-                        env={"DOCKER_BUILDKIT": "1"},
-                    )
-                except subprocess.CalledProcessError:
-                    # If the ray image does not exist yet, we will retry later
-                    logger.info(f"Retry for another {7200 - timeout}s ...")
-                    time.sleep(30)
-                    timeout += 30
-                    continue
-                subprocess.check_call(
-                    ["docker", "push", byod_image],
-                    stdout=subprocess.DEVNULL,
-                )
-                built.add(ray_image)
-    return
 
 
 if __name__ == "__main__":
