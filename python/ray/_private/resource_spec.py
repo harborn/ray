@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import sys
+import dpctl
 from collections import namedtuple
 from typing import Optional
 
@@ -157,35 +158,16 @@ class ResourceSpec(
         # ray._private.state.current_node_id().
         resources[NODE_ID_PREFIX + node_ip_address] = 1.0
 
+        # get cpu num
         num_cpus = self.num_cpus
         if num_cpus is None:
             num_cpus = ray._private.utils.get_num_cpus()
 
-        num_gpus = self.num_gpus
-        gpu_ids = ray._private.utils.get_cuda_visible_devices()
-        # Check that the number of GPUs that the raylet wants doesn't
-        # exceed the amount allowed by CUDA_VISIBLE_DEVICES.
-        if num_gpus is not None and gpu_ids is not None and num_gpus > len(gpu_ids):
-            raise ValueError(
-                "Attempting to start raylet with {} GPUs, "
-                "but CUDA_VISIBLE_DEVICES contains {}.".format(num_gpus, gpu_ids)
-            )
+        # get gpu num
+        num_gpus, gpu_types = _get_cuda_info(self.num_gpus)
         if num_gpus is None:
-            # Try to automatically detect the number of GPUs.
-            num_gpus = _autodetect_num_gpus()
-            # Don't use more GPUs than allowed by CUDA_VISIBLE_DEVICES.
-            if gpu_ids is not None:
-                num_gpus = min(num_gpus, len(gpu_ids))
-
-        try:
-            if importlib.util.find_spec("GPUtil") is not None:
-                gpu_types = _get_gpu_types_gputil()
-            else:
-                info_string = _get_gpu_info_string()
-                gpu_types = _constraints_from_gpu_info(info_string)
-            resources.update(gpu_types)
-        except Exception:
-            logger.exception("Could not parse gpu information.")
+            num_gpus, gpu_types = _get_xpu_info(self.num_gpus)
+        resources.update(gpu_types)
 
         # Choose a default object store size.
         system_memory = ray._private.utils.get_system_memory()
@@ -263,6 +245,41 @@ class ResourceSpec(
         )
         assert spec.resolved()
         return spec
+
+
+def _get_cuda_info(num_gpus):
+    gpu_ids = ray._private.utils.get_cuda_visible_devices()
+    # Check that the number of GPUs that the raylet wants doesn't
+    # exceed the amount allowed by CUDA_VISIBLE_DEVICES.
+    if num_gpus is not None and gpu_ids is not None and num_gpus > len(gpu_ids):
+        raise ValueError(
+                "Attempting to start raylet with {} GPUs, "
+                "but CUDA_VISIBLE_DEVICES contains {}.".format(num_gpus, gpu_ids)
+                )
+    if num_gpus is None:
+        # Try to automatically detect the number of GPUs.
+        num_gpus = _autodetect_num_gpus()
+        # Don't use more GPUs than allowed by CUDA_VISIBLE_DEVICES.
+        if gpu_ids is not None:
+            num_gpus = min(num_gpus, len(gpu_ids))
+
+    gpu_types = ""
+    try:
+        if importlib.util.find_spec("GPUtil") is not None:
+            gpu_types = _get_gpu_types_gputil()
+        else:
+            info_string = _get_gpu_info_string()
+            gpu_types = _constraints_from_gpu_info(info_string)
+    except Exception:
+        logger.exception("Could not parse gpu information.")
+
+    return num_gpus, gpu_types
+
+
+def _get_xpu_info(num_gpus):
+    num_gpus = min(num_gpus, len(dpctl.get_devices(backend="level_zero", device_type="gpu")))
+    gpu_types = "gpu"
+    return num_gpus, gpu_types
 
 
 def _autodetect_num_gpus():
