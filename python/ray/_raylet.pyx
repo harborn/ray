@@ -1048,7 +1048,7 @@ cdef execute_task_with_cancellation_handler(
     ray._private.utils.set_cuda_visible_devices(ray.get_gpu_ids())
 
     # Automatically restrict the XPU device avaialable to this task
-    ray._private.utils.set_xpu_visible_devices(ray.get_xpu_infos())
+    ray._private.utils.set_xpu_visible_devices(ray.get_xpu_devices())
 
     # Automatically configure OMP_NUM_THREADS to the assigned CPU number.
     # It will be unset after the task execution if it was overwridden here.

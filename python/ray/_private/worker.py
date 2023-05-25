@@ -951,8 +951,8 @@ def get_gpu_ids():
 
 @PublicAPI
 @client_mode_hook(auto_init=True)
-def get_xpu_infos():
-    pass
+def get_xpu_devices():
+    return dpctl.get_devices(backend=XPU_BACKEDN, device_type=XPU_DEVICE_TYPE)
  
 
 @Deprecated(

@@ -384,11 +384,11 @@ def set_cuda_visible_devices(gpu_ids):
     last_set_gpu_ids = gpu_ids
 
 
-def set_xpu_visible_devices(xpu_infos):
+def set_xpu_visible_devices(sycl_devices : List[dpctl.SyclDevice]):
     """Set the ONEAPI_DEVICE_SELECTOR environment variable.
 
     Args:
-        num_gpus: Count of GPU that visiable.
+        sycl_devices: List of sycl device.
     """
 
     if os.environ.get(ray_constants.NOSET_XPU_VISIBLE_DEVICES_ENV_VAR):
@@ -396,7 +396,7 @@ def set_xpu_visible_devices(xpu_infos):
 
     # TODO check correctly way to construct the ONEAPI_DEVICE_SELECTOR
     selection = ""
-    for info in xpu_infos:
+    for info in sycl_devices:
         selection.append(f"{info.backend}:{info.device_type};}")
     os.environ["ONEAPI_DEVICE_SELECTOR"] = selection
 
