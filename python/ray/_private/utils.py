@@ -401,14 +401,6 @@ def set_xpu_visible_devices(xpu_infos):
     os.environ["ONEAPI_DEVICE_SELECTOR"] = selection
 
 
-def set_oneapi_device_selector(info):
-    """Set the ONEAPI_DEVICE_SELECTOR environment variable.
-    Args:
-        The xpu device selection for one api.
-    """
-    os.environ["ONEAPI_DEVICE_SELECTOR"] = info
-
-
 def resources_from_ray_options(options_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Determine a task's resource requirements.
 
