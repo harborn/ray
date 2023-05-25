@@ -163,11 +163,13 @@ class ResourceSpec(
         if num_cpus is None:
             num_cpus = ray._private.utils.get_num_cpus()
 
-        # get gpu num
+        # get cuda gpu num
         num_gpus, gpu_types = _get_cuda_info(self.num_gpus)
-        if num_gpus is None:
-            num_gpus, gpu_types = _get_xpu_info(self.num_gpus)
         resources.update(gpu_types)
+
+        # add xpu num, xpu includes [cpu, gpu, fpga]
+        # and device num can be filtered by backend and device_type
+        num_gpus += _get_num_xpus()
 
         # Choose a default object store size.
         system_memory = ray._private.utils.get_system_memory()
@@ -276,10 +278,9 @@ def _get_cuda_info(num_gpus):
     return num_gpus, gpu_types
 
 
-def _get_xpu_info(num_gpus):
-    num_gpus = min(num_gpus, len(dpctl.get_devices(backend="level_zero", device_type="gpu")))
-    gpu_types = "gpu"
-    return num_gpus, gpu_types
+def _get_num_xpus():
+    num_gpus = len(dpctl.get_devices(backend=XPU_BACKEND, device_type=XPU_DEVICE_TYPE)))
+    return num_gpus
 
 
 def _autodetect_num_gpus():

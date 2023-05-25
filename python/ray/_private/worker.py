@@ -949,6 +949,11 @@ def get_gpu_ids():
 
     return assigned_ids
 
+@PublicAPI
+@client_mode_hook(auto_init=True)
+def get_xpu_infos():
+    pass
+ 
 
 @Deprecated(
     message="Use ray.get_runtime_context().get_assigned_resources() instead.",
