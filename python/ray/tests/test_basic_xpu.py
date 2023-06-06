@@ -156,8 +156,8 @@ def test_batched_nms(shutdown_only):
 
 """
 def test_linear(shutdown_only):
-    ray.init(num_cpus=0, num_gpus=1)
-    @ray.remote(num_cpus=0, num_gpus=1)
+    ray.init(num_cpus=1, num_gpus=1)
+    @ray.remote(num_cpus=1, num_gpus=0)
     def cpu_task_func():
         device = torch.device("cpu:0")
         x = torch.tensor([[1, 2, 3, 4, 5],
@@ -165,12 +165,13 @@ def test_linear(shutdown_only):
                           [3, 4, 5, 6, 7],
                           [4, 5, 6, 7, 8],
                           [5, 6, 7, 8, 9]],
+                         dtype=torch.float,
                          device=device)
-        l = torch.nn.Linear(5, 5).to(device)
+        l = torch.nn.Linear(5, 5).to(device, torch.float)
         r = l(x)
         return to_str(r)
 
-    @ray.remote(num_cpus=1, num_gpus=0)
+    @ray.remote(num_cpus=0, num_gpus=1)
     def xpu_task_func():
         device = torch.device("xpu:0")
         x = torch.tensor([[1, 2, 3, 4, 5],
@@ -178,10 +179,11 @@ def test_linear(shutdown_only):
                           [3, 4, 5, 6, 7],
                           [4, 5, 6, 7, 8],
                           [5, 6, 7, 8, 9]],
+                         dtype=torch.float,
                          device=device)
-        l = torch.nn.Linear(5, 5).to(device)
+        l = torch.nn.Linear(5, 5).to(device, torch.float)
         r = l(x)
-        return to_str()
+        return to_str(r)
 
     jobs = [cpu_task_func.remote(), xpu_task_func.remote()]
     res = ray.get(jobs)
