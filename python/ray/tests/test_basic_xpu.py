@@ -122,7 +122,7 @@ def test_nms(shutdown_only):
         score = torch.FloatTensor([0.5, 0.3, 0.2, 0.4, 0.3]).xpu()
         out_ref = torch.LongTensor([0, 3, 1, 4])
         out = torchvision.ops.nms(box, score, 0.3)
-        return (to_str(out.cpu(), to_str(out_ref)))
+        return (to_str(out.cpu()), to_str(out_ref))
 
     job = nms_func.remote()
     res = ray.get(job)
@@ -154,3 +154,38 @@ def test_batched_nms(shutdown_only):
     print(f"in test_batched_nms, res = {res}")
     assert res[0] == res[1]
 
+"""
+def test_linear(shutdown_only):
+    ray.init(num_cpus=0, num_gpus=1)
+    @ray.remote(num_cpus=0, num_gpus=1)
+    def cpu_task_func():
+        device = torch.device("cpu:0")
+        x = torch.tensor([[1, 2, 3, 4, 5],
+                          [2, 3, 4, 5, 6],
+                          [3, 4, 5, 6, 7],
+                          [4, 5, 6, 7, 8],
+                          [5, 6, 7, 8, 9]],
+                         device=device)
+        l = torch.nn.Linear(5, 5).to(device)
+        r = l(x)
+        return to_str(r)
+
+    @ray.remote(num_cpus=1, num_gpus=0)
+    def xpu_task_func():
+        device = torch.device("xpu:0")
+        x = torch.tensor([[1, 2, 3, 4, 5],
+                          [2, 3, 4, 5, 6],
+                          [3, 4, 5, 6, 7],
+                          [4, 5, 6, 7, 8],
+                          [5, 6, 7, 8, 9]],
+                         device=device)
+        l = torch.nn.Linear(5, 5).to(device)
+        r = l(x)
+        return to_str()
+
+    jobs = [cpu_task_func.remote(), xpu_task_func.remote()]
+    res = ray.get(jobs)
+
+    print(to_str(res))
+    assert res[0] == res[1]
+"""
