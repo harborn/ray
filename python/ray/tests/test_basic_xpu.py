@@ -171,7 +171,7 @@ def test_linear(shutdown_only):
         r = l(x)
         return to_str(r)
 
-    @ray.remote(num_cpus=0, num_gpus=1)
+    @ray.remote(num_cpus=0, num_xpus=1)
     def xpu_task_func():
         device = torch.device("xpu:0")
         x = torch.tensor([[1, 2, 3, 4, 5],

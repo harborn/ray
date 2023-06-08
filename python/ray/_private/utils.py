@@ -326,6 +326,24 @@ def get_cuda_visible_devices():
 last_set_gpu_ids = None
 
 
+def get_xpu_visible_devices():
+    """Get the devices IDs in the XPU_VISIBLE_DEVICES environment variable.
+
+    Returns:
+        devices (List[str]): If XPU_VISIBLE_DEVICES is set, return a
+            list of strings representing the IDs of the visible XPUs.
+            If it is not set or is set, returns empty list.
+    """
+    xpu_ids_str = os.environ.get("XPU_VISIBLE_DEVICES", None)
+    if xpu_ids_str is None:
+        return None
+
+    if xpu_ids_str == "":
+        return []
+
+    return list(xpu_ids_str.split(","))
+
+
 def set_omp_num_threads_if_unset() -> bool:
     """Set the OMP_NUM_THREADS to default to num cpus assigned to the worker
 
@@ -384,21 +402,19 @@ def set_cuda_visible_devices(gpu_ids):
     last_set_gpu_ids = gpu_ids
 
 
-def set_xpu_visible_devices(sycl_devices : List[dpctl.SyclDevice]):
+def set_xpu_visible_devices(xpu_ids):
     """Set the ONEAPI_DEVICE_SELECTOR environment variable.
 
     Args:
-        sycl_devices: List of sycl device.
+        xpu_ids (List[str]): List of strings representing GPU IDs
     """
 
     if os.environ.get(ray_constants.NOSET_XPU_VISIBLE_DEVICES_ENV_VAR):
         return
 
-    # TODO check correctly way to construct the ONEAPI_DEVICE_SELECTOR
-    selection = ""
-    for info in sycl_devices:
-        selection.append(f"{info.backend}:{info.device_type};}")
-    os.environ["ONEAPI_DEVICE_SELECTOR"] = selection
+    ids_str = ",".join([str(i) for i in xpu_ids])
+    os.environ["XPU_VISIBLE_DEVICES"] = ids_str 
+    os.environ["ONEAPI_DEVICE_SELECTOR"] = RAY_DEVICE_XPU_BACKEND_TYPE + ":" + ids_str
 
 
 def resources_from_ray_options(options_dict: Dict[str, Any]) -> Dict[str, Any]:

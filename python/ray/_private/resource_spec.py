@@ -4,12 +4,16 @@ import os
 import re
 import subprocess
 import sys
-import dpctl
 from collections import namedtuple
 from typing import Optional
 
 import ray
 import ray._private.ray_constants as ray_constants
+
+try:
+    import dpctl
+except ImportError
+    pass
 
 try:
     import GPUtil
@@ -159,17 +163,20 @@ class ResourceSpec(
         resources[NODE_ID_PREFIX + node_ip_address] = 1.0
 
         # get cpu num
-        num_cpus = self.num_cpus
-        if num_cpus is None:
-            num_cpus = ray._private.utils.get_num_cpus()
+        if "CPU" in RAY_DEVICE_TYPES:
+            num_cpus = self.num_cpus
+            if num_cpus is None:
+                num_cpus = ray._private.utils.get_num_cpus()
 
-        # get cuda gpu num
-        num_gpus, gpu_types = _get_cuda_info(self.num_gpus)
-        resources.update(gpu_types)
+        if "CUDA" in RAY_DEVICE_TYPES: # get cuda gpu num
+            num_gpus, gpu_types = _get_cuda_info(self.num_gpus)
+            resources.update(gpu_types)
 
-        # add xpu num, xpu includes [cpu, gpu, fpga]
-        # and device num can be filtered by backend and device_type
-        num_gpus += _get_num_xpus()
+        if "XPU" in RAY_DEVICE_TYPES:
+            if os.environ.get(RAY_DEVICE_XPU_AS_GPU, "True"):
+                num_xpus, xpu_types = _get_(self.num_gpus)
+                num_gpus += num_xpus
+                resource.udpate(xpu_types)
 
         # Choose a default object store size.
         system_memory = ray._private.utils.get_system_memory()
@@ -278,9 +285,17 @@ def _get_cuda_info(num_gpus):
     return num_gpus, gpu_types
 
 
-def _get_num_xpus():
-    num_gpus = len(dpctl.get_devices(backend=XPU_BACKEND, device_type=XPU_DEVICE_TYPE)))
-    return num_gpus
+def _get_xpu_info(num_xpus):
+    """Attempt to process the number of XPUs as GPUs
+    """
+    xpu_ids = ray._private.utils.get_xpu_visible_devices()
+    if num_xpus is None:
+        num_xpus = len(dpctl.get_devices(backend=RAY_DEVICE_XPU_BACKEND_TYPE,
+                                         device_type=RAY_DEVICE_XPU_DEVICE_TYPE))
+        if xpu_ids is not None:
+            num_xpus = min(num_xpus, len(xpu_ids))
+    xpu_types = {f"{ray_constants.RESOURCE_CONSTRAINT_PREFIX}" "xpu": 1}
+    return num_xpus, xpu_types
 
 
 def _autodetect_num_gpus():

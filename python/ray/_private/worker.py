@@ -434,6 +434,8 @@ class Worker:
         # When the worker is constructed. Record the original value of the
         # CUDA_VISIBLE_DEVICES environment variable.
         self.original_gpu_ids = ray._private.utils.get_cuda_visible_devices()
+        # record the original value of the XPU_VISIBLE_DEVICES environment variable.
+        self.original_xpu_ids = ray._private.utils.get_xpu_visible_devices()
         # A dictionary that maps from driver id to SerializationContext
         # TODO: clean up the SerializationContext once the job finished.
         self.serialization_context_map = {}
@@ -949,11 +951,54 @@ def get_gpu_ids():
 
     return assigned_ids
 
+
 @PublicAPI
 @client_mode_hook(auto_init=True)
-def get_xpu_devices():
-    return dpctl.get_devices(backend=XPU_BACKEDN, device_type=XPU_DEVICE_TYPE)
- 
+def get_xpu_ids():
+    """ Get the IDs of the XPUs that are available to the worker.
+
+    If the XPU_VISIBLE_DEVICES environment variable was set when the worker
+    started up,
+
+    Returns:
+        A list of XPU IDs
+    """
+    worker = global_worker
+    worker.check_connected()
+
+    if worker.mode != WORKER_MODE:
+        if log_once("worker_get_gpu_ids_empty_from_driver"):
+            logger.warning(
+                "`ray.get_xpu_ids()` will always return the empty list when "
+                "called from the driver. This is because Ray does not manage "
+                "XPU allocations to the driver process."
+            )
+    # here we use `dpctl` to detect XPU device
+
+    # xpu_devices get all device under environment varaible ONEAPI_DEVICE_SELECTOR
+    xpu_devices = dpctl.get_devices(backend=RAY_DEVICE_XPU_BACKEND_TYPE,
+                                    device_type=RAY_DEVICE_XPU_DEVICE_TYPE)
+    xpu_ids = []
+    if len(xpu_devices) == 0:
+        return xpu_ids
+
+    if global_worker.original_xpu_ids is None:
+        return range(len(xpu_devices))
+
+    # return ids should take care of 3 case:
+    # 1. XPU_VISIBLE_DEVICES define ids count equal count of xpu_devices
+    if len(xpu_devices) == len(global_worker.original_xpu_ids):
+        return global_worker.original_xpu_ids
+
+    # 2. XPU_VISIBLE_DEVICES define ids count less than count of xpu_devices
+    # [2,3], level_zero:2,3,4
+    if len(xpu_devices) < len(global_worker.or 
+
+    # 3. XPU_VISIBLE_DEVICES define ids count more than count of xpu_devices
+
+    if len(xpu_devices) != global_worker.original_xpu_ids:
+
+    return xpu_ids
 
 @Deprecated(
     message="Use ray.get_runtime_context().get_assigned_resources() instead.",
