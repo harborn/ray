@@ -973,30 +973,25 @@ def get_xpu_ids():
                 "called from the driver. This is because Ray does not manage "
                 "XPU allocations to the driver process."
             )
-    # here we use `dpctl` to detect XPU device
+    # Here we use `dpctl` to detect XPU device:
+    #   Enumrate all device by API dpctl.get_devices
+    #   Notice that ONEAPI_DEVICE_SELECTOR environment variable should be unset
+    #   Or dpctl.get_devices will only return filtered device set by ONEAPI_DEVICE_SELECTOR
+    # Another method to enumrate XPU device is to use C++ API, maybe can upgrade laster
 
-    # xpu_devices get all device under environment varaible ONEAPI_DEVICE_SELECTOR
-    xpu_devices = dpctl.get_devices(backend=RAY_DEVICE_XPU_BACKEND_TYPE,
-                                    device_type=RAY_DEVICE_XPU_DEVICE_TYPE)
+    xpu_devices = dpctl.get_devices(backend=ray_constants.RAY_DEVICE_XPU_BACKEND_TYPE,
+                                    device_type=ray_constants.RAY_DEVICE_XPU_DEVICE_TYPE)
+    xpu_ava_ids = set()
+    xpu_dev_prefix = f"{ray_constants.RAY_DEVICE_XPU_BACKEND_TYPE}:{ray_constants.RAY_DEVICE_XPU_DEVICE_TYPE}"
+    for xpu_dev in xpu_devices:
+        xpu_id = int(xpu_dev.filter_string.split(xpu_dev_prefix)[1])
+        xpu_ava_ids.add(xpu_id)
+
     xpu_ids = []
-    if len(xpu_devices) == 0:
-        return xpu_ids
-
-    if global_worker.original_xpu_ids is None:
-        return range(len(xpu_devices))
-
-    # return ids should take care of 3 case:
-    # 1. XPU_VISIBLE_DEVICES define ids count equal count of xpu_devices
-    if len(xpu_devices) == len(global_worker.original_xpu_ids):
-        return global_worker.original_xpu_ids
-
-    # 2. XPU_VISIBLE_DEVICES define ids count less than count of xpu_devices
-    # [2,3], level_zero:2,3,4
-    if len(xpu_devices) < len(global_worker.or 
-
-    # 3. XPU_VISIBLE_DEVICES define ids count more than count of xpu_devices
-
-    if len(xpu_devices) != global_worker.original_xpu_ids:
+    if global_worker.original_xpu_ids is not None:
+        xpu_ids = [
+            global_worker.original_xpu_ids[xpu_id] for xpu_id in xpu_ava_ids
+        ]
 
     return xpu_ids
 

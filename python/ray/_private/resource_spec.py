@@ -168,13 +168,17 @@ class ResourceSpec(
             if num_cpus is None:
                 num_cpus = ray._private.utils.get_num_cpus()
 
-        if "CUDA" in RAY_DEVICE_TYPES: # get cuda gpu num
+        # get cuda gpu num
+        if "CUDA" in RAY_DEVICE_TYPES:
             num_gpus, gpu_types = _get_cuda_info(self.num_gpus)
             resources.update(gpu_types)
 
+        # get xpu num
         if "XPU" in RAY_DEVICE_TYPES:
-            if os.environ.get(RAY_DEVICE_XPU_AS_GPU, "True"):
-                num_xpus, xpu_types = _get_(self.num_gpus)
+            if os.environ.get(ray_constants.RAY_DEVICE_XPU_AS_GPU, "True"):
+                # here we take xpu as gpu, so no need to develop core's scheduling policy
+                # If we don't want to take xpu as gpu, ray core need to develop new scheduling policy
+                num_xpus, xpu_types = _get_xpu_info(self.num_gpus)
                 num_gpus += num_xpus
                 resource.udpate(xpu_types)
 
@@ -287,8 +291,16 @@ def _get_cuda_info(num_gpus):
 
 def _get_xpu_info(num_xpus):
     """Attempt to process the number of XPUs as GPUs
+
+    Returns:
+        The number of XPUs
     """
     xpu_ids = ray._private.utils.get_xpu_visible_devices()
+    if num_xpus is not None and xpu_ids is not None and num_xpus > len(xpu_ids):
+        raise ValueError(
+                "Attempting to start raylet with {} XPUs, "
+                "but XPU_VISIBLE_DEVICES contains {}.".format(num_xpus, xpu_ids)
+                )
     if num_xpus is None:
         num_xpus = len(dpctl.get_devices(backend=RAY_DEVICE_XPU_BACKEND_TYPE,
                                          device_type=RAY_DEVICE_XPU_DEVICE_TYPE))
