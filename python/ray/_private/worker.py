@@ -434,6 +434,8 @@ class Worker:
         # When the worker is constructed. Record the original value of the
         # CUDA_VISIBLE_DEVICES environment variable.
         self.original_gpu_ids = ray._private.utils.get_cuda_visible_devices()
+        # Record the original value of the XPU_VISIBLE_DEVICES environment variable.
+        self.original_xpu_ids = ray._private.utils.get_xpu_visible_devices()
         # A dictionary that maps from driver id to SerializationContext
         # TODO: clean up the SerializationContext once the job finished.
         self.serialization_context_map = {}
@@ -900,6 +902,13 @@ class Worker:
 @PublicAPI
 @client_mode_hook(auto_init=True)
 def get_gpu_ids():
+    if ray_constants.RAY_DEVICE_CURRENT_ACCELERATOR == "CUDA":
+        return get_cuda_ids()
+    elif ray_constants.RAY_DEVICE_CURRENT_ACCELERATOR == "XPU":
+        return get_xpu_ids()
+
+
+def get_cuda_ids():
     """Get the IDs of the GPUs that are available to the worker.
 
     If the CUDA_VISIBLE_DEVICES environment variable was set when the worker
@@ -948,6 +957,46 @@ def get_gpu_ids():
             assigned_ids = global_worker.original_gpu_ids[:max_gpus]
 
     return assigned_ids
+
+
+def get_xpu_ids():
+    """ Get the IDs of the XPUs that are available to the worker.
+    If the XPU_VISIBLE_DEVICES environment variable was set when the worker
+    started up,
+    Returns:
+        A list of XPU IDs
+    """
+    worker = global_worker
+    worker.check_connected()
+
+    if worker.mode != WORKER_MODE:
+        if log_once("worker_get_gpu_ids_empty_from_driver"):
+            logger.warning(
+                "`ray.get_xpu_ids()` will always return the empty list when "
+                "called from the driver. This is because Ray does not manage "
+                "XPU allocations to the driver process."
+            )
+    # Here we use `dpctl` to detect XPU device:
+    #   Enumrate all device by API dpctl.get_devices
+    #   Notice that ONEAPI_DEVICE_SELECTOR environment variable should be unset
+    #   Or dpctl.get_devices will only return filtered device set by ONEAPI_DEVICE_SELECTOR
+    # Another method to enumrate XPU device is to use C++ API, maybe can upgrade laster
+
+    xpu_devices = dpctl.get_devices(backend=ray_constants.RAY_DEVICE_XPU_BACKEND_TYPE,
+                                    device_type=ray_constants.RAY_DEVICE_XPU_DEVICE_TYPE)
+    xpu_ava_ids = set()
+    xpu_dev_prefix = f"{ray_constants.RAY_DEVICE_XPU_BACKEND_TYPE}:{ray_constants.RAY_DEVICE_XPU_DEVICE_TYPE}"
+    for xpu_dev in xpu_devices:
+        xpu_id = int(xpu_dev.filter_string.split(xpu_dev_prefix)[1])
+        xpu_ava_ids.add(xpu_id)
+
+    xpu_ids = []
+    if global_worker.original_xpu_ids is not None:
+        xpu_ids = [
+            global_worker.original_xpu_ids[xpu_id] for xpu_id in xpu_ava_ids
+        ]
+
+    return xpu_ids
 
 
 @Deprecated(

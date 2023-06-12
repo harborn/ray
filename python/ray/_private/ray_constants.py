@@ -23,6 +23,7 @@ def env_integer(key, default):
 
 
 def env_bool(key, default):
+    print(f"going to create env var name = {key} with value = {default}")
     if key in os.environ:
         return (
             True
@@ -226,7 +227,7 @@ MONITOR_LOG_FILE_NAME = f"{PROCESS_TYPE_MONITOR}.log"
 LOG_MONITOR_LOG_FILE_NAME = f"{PROCESS_TYPE_LOG_MONITOR}.log"
 
 # Enable log deduplication.
-RAY_DEDUP_LOGS = env_bool("RAY_DEDUP_LOGS", True)
+RAY_DEDUP_LOGS = env_bool("RAY_DEDUP_LOGS", False)
 
 # How many seconds of messages to buffer for log deduplication.
 RAY_DEDUP_LOGS_AGG_WINDOW_S = env_integer("RAY_DEDUP_LOGS_AGG_WINDOW_S", 5)
@@ -378,6 +379,13 @@ KV_NAMESPACE_FUNCTION_TABLE = b"fun"
 LANGUAGE_WORKER_TYPES = ["python", "java", "cpp"]
 
 NOSET_CUDA_VISIBLE_DEVICES_ENV_VAR = "RAY_EXPERIMENTAL_NOSET_CUDA_VISIBLE_DEVICES"
+NOSET_XPU_VISIBLE_DEVICES_ENV_VAR = "RAY_EXPERIMENTAL_NOSET_XPU_VISIBLE_DEVICES"
+RAY_DEVICE_XPU_SELECTOR_ENV_VAR = "ONEAPI_DEVICE_SELECTOR"
+RAY_DEVICE_XPU_BACKEND_TYPE = "level_zero"
+RAY_DEVICE_XPU_DEVICE_TYPE = "gpu"
+
+RAY_DEVICE_SUPPORT_TYPES = {"CPU", "CUDA", "XPU"}
+RAY_DEVICE_CURRENT_ACCELERATOR = "CUDA"
 
 # Default max_retries option in @ray.remote for non-actor
 # tasks.

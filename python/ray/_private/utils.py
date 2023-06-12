@@ -309,6 +309,7 @@ def get_cuda_visible_devices():
             If it is not set or is set to NoDevFiles, returns empty list.
     """
     gpu_ids_str = os.environ.get("CUDA_VISIBLE_DEVICES", None)
+    print(f"in get_cuda_visible_devices, env var = {gpu_ids_str}")
 
     if gpu_ids_str is None:
         return None
@@ -324,6 +325,24 @@ def get_cuda_visible_devices():
 
 
 last_set_gpu_ids = None
+
+
+def get_xpu_visible_devices():
+    """Get the devices IDs in the XPU_VISIBLE_DEVICES environment variable.
+    Returns:
+        devices (List[str]): If XPU_VISIBLE_DEVICES is set, return a
+            list of strings representing the IDs of the visible XPUs.
+            If it is not set or is set, returns empty list.
+    """
+    xpu_ids_str = os.environ.get("XPU_VISIBLE_DEVICES", None)
+    print(f"in get_xpu_visible_devices, env var = {xpu_ids_str}")
+    if xpu_ids_str is None:
+        return None
+
+    if xpu_ids_str == "":
+        return []
+
+    return list(xpu_ids_str.split(","))
 
 
 def set_omp_num_threads_if_unset() -> bool:
@@ -379,9 +398,26 @@ def set_cuda_visible_devices(gpu_ids):
     global last_set_gpu_ids
     if last_set_gpu_ids == gpu_ids:
         return  # optimization: already set
-
+    ids_str = ",".join([str(i) for i in gpu_ids])
+    print(f"in set_cuda_visible_devices, env var = {ids_str}")
     os.environ["CUDA_VISIBLE_DEVICES"] = ",".join([str(i) for i in gpu_ids])
     last_set_gpu_ids = gpu_ids
+
+
+def set_xpu_visible_devices(xpu_ids):
+    """Set the ONEAPI_DEVICE_SELECTOR environment variable.
+    Args:
+        xpu_ids (List[str]): List of strings representing GPU IDs
+    """
+
+    if os.environ.get(ray_constants.NOSET_XPU_VISIBLE_DEVICES_ENV_VAR):
+        print(f"no set xpu visible devices env var")
+        return
+
+    ids_str = ",".join([str(i) for i in xpu_ids])
+    print(f"in set_xpu_visible_devices, env var = {ids_str}")
+    os.environ["XPU_VISIBLE_DEVICES"] = ids_str
+    os.environ["ONEAPI_DEVICE_SELECTOR"] = RAY_DEVICE_XPU_BACKEND_TYPE + ":" + ids_str
 
 
 def resources_from_ray_options(options_dict: Dict[str, Any]) -> Dict[str, Any]:
