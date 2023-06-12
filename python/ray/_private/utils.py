@@ -417,7 +417,7 @@ def set_xpu_visible_devices(xpu_ids):
     ids_str = ",".join([str(i) for i in xpu_ids])
     print(f"in set_xpu_visible_devices, env var = {ids_str}")
     os.environ["XPU_VISIBLE_DEVICES"] = ids_str
-    os.environ["ONEAPI_DEVICE_SELECTOR"] = RAY_DEVICE_XPU_BACKEND_TYPE + ":" + ids_str
+    os.environ["ONEAPI_DEVICE_SELECTOR"] = ray_constants.RAY_DEVICE_XPU_BACKEND_TYPE + ":" + ids_str
 
 
 def resources_from_ray_options(options_dict: Dict[str, Any]) -> Dict[str, Any]:

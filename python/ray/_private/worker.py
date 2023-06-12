@@ -13,6 +13,7 @@ import time
 import traceback
 import urllib
 import warnings
+import dpctl
 from abc import ABCMeta, abstractmethod
 from collections.abc import Mapping
 from contextlib import contextmanager
@@ -899,15 +900,6 @@ class Worker:
             subscriber.close()
 
 
-@PublicAPI
-@client_mode_hook(auto_init=True)
-def get_gpu_ids():
-    if ray_constants.RAY_DEVICE_CURRENT_ACCELERATOR == "CUDA":
-        return get_cuda_ids()
-    elif ray_constants.RAY_DEVICE_CURRENT_ACCELERATOR == "XPU":
-        return get_xpu_ids()
-
-
 def get_cuda_ids():
     """Get the IDs of the GPUs that are available to the worker.
 
@@ -925,7 +917,7 @@ def get_cuda_ids():
     if worker.mode != WORKER_MODE:
         if log_once("worker_get_gpu_ids_empty_from_driver"):
             logger.warning(
-                "`ray.get_gpu_ids()` will always return the empty list when "
+                "`ray.get_cuda_ids()` will always return the empty list when "
                 "called from the driver. This is because Ray does not manage "
                 "GPU allocations to the driver process."
             )
@@ -997,6 +989,15 @@ def get_xpu_ids():
         ]
 
     return xpu_ids
+
+
+@PublicAPI
+@client_mode_hook(auto_init=True)
+def get_gpu_ids():
+    if ray_constants.RAY_DEVICE_CURRENT_ACCELERATOR == "CUDA":
+        return get_cuda_ids()
+    elif ray_constants.RAY_DEVICE_CURRENT_ACCELERATOR == "XPU":
+        return get_xpu_ids()
 
 
 @Deprecated(

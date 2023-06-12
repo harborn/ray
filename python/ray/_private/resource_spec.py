@@ -313,8 +313,8 @@ def _get_xpu_info(num_xpus):
                 "but XPU_VISIBLE_DEVICES contains {}.".format(num_xpus, xpu_ids)
                 )
     if num_xpus is None:
-        num_xpus = len(dpctl.get_devices(backend=RAY_DEVICE_XPU_BACKEND_TYPE,
-                                         device_type=RAY_DEVICE_XPU_DEVICE_TYPE))
+        num_xpus = len(dpctl.get_devices(backend=ray_constants.RAY_DEVICE_XPU_BACKEND_TYPE,
+                                         device_type=ray_constants.RAY_DEVICE_XPU_DEVICE_TYPE))
         if xpu_ids is not None:
             num_xpus = min(num_xpus, len(xpu_ids))
     xpu_types = {f"{ray_constants.RESOURCE_CONSTRAINT_PREFIX}" "xpu": 1}
