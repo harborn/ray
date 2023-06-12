@@ -148,6 +148,35 @@ def test_get_assigned_resources(ray_start_10_cpus):
     assert ray.get(result)["CPU"] == 2.0
 
 
+def test_get_assigned_resources_gpu(ray_start_1_cpus_6_xpus):
+    os.environ.set(ray._private.ray_constants.RAY_DEVICE_XPU_AS_GPU, True)
+    @ray.remote
+    class Echo:
+        def check(self):
+            return ray.get_runtime_context().get_assigned_resources()
+
+    e = Echo.remote()
+    result = e.check.remote()
+    print(ray.get(result))
+    assert ray.get(result).get("GPU") is None
+    ray.kill(e)
+
+    e = Echo.options(num_gpus=4).remote()
+    result = e.check.remote()
+    assert ray.get(result)["GPU"] == 4.0
+    ray.kill(e)
+
+    @ray.remote
+    def check():
+        return ray.get_runtime_context().get_assigned_resources()
+
+    result = check.remote()
+    assert ray.get(result)["GPU"] == 1.0
+
+    result = check.options(num_gpus=2).remote()
+    assert ray.get(result)["GPU"] == 2.0
+
+
 def test_actor_stats_normal_task(ray_start_regular):
     # Because it works at the core worker level, this API works for tasks.
     @ray.remote

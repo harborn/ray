@@ -354,6 +354,13 @@ def ray_start_10_cpus(request, maybe_external_redis):
         yield res
 
 
+@pytest.fixture
+def ray_start_1_cpus_6_xpus(request, maybe_external_redis):
+    param = getattr(request, "param", {})
+    with _ray_start(num_cpus=1, num_gpus=6, **param) as res:
+        yield res
+
+
 @contextmanager
 def _ray_start_cluster(**kwargs):
     cluster_not_supported_ = kwargs.pop("skip_cluster", cluster_not_supported)
