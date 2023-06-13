@@ -434,9 +434,8 @@ class Worker:
         self.actors = {}
         # When the worker is constructed. Record the original value of the
         # CUDA_VISIBLE_DEVICES environment variable.
-        self.original_gpu_ids = ray._private.utils.get_cuda_visible_devices()
         # Record the original value of the XPU_VISIBLE_DEVICES environment variable.
-        self.original_xpu_ids = ray._private.utils.get_xpu_visible_devices()
+        self.original_gpu_ids = ray._private.utils.get_gpu_visible_devices()
         # A dictionary that maps from driver id to SerializationContext
         # TODO: clean up the SerializationContext once the job finished.
         self.serialization_context_map = {}
@@ -983,9 +982,9 @@ def get_xpu_ids():
         xpu_ava_ids.add(xpu_id)
 
     xpu_ids = []
-    if global_worker.original_xpu_ids is not None:
+    if global_worker.original_gpu_ids is not None:
         xpu_ids = [
-            global_worker.original_xpu_ids[xpu_id] for xpu_id in xpu_ava_ids
+            global_worker.original_gpu_ids[xpu_id] for xpu_id in xpu_ava_ids
         ]
 
     return xpu_ids

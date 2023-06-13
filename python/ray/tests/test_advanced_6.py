@@ -39,6 +39,7 @@ def save_gpu_ids_shutdown_only():
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Hangs on Windows")
 def test_specific_gpus(save_gpu_ids_shutdown_only):
+    ray._private.ray_constants.RAY_DEVICE_CURRENT_ACCELERATOR = "CUDA"
     allowed_gpu_ids = [4, 5, 6]
     os.environ["CUDA_VISIBLE_DEVICES"] = ",".join([str(i) for i in allowed_gpu_ids])
     ray.init(num_gpus=3)
@@ -62,6 +63,7 @@ def test_specific_gpus(save_gpu_ids_shutdown_only):
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Hangs on Windows")
 def test_specific_xpus(save_gpu_ids_shutdown_only):
+    ray._private.ray_constants.RAY_DEVICE_CURRENT_ACCELERATOR = "XPU"
     allowed_xpu_ids = [1, 3, 5]
     os.environ["XPU_VISIBLE_DEVICES"] = ",".join([str(i) for i in allowed_xpu_ids])
     ray.init(num_gpus=3)

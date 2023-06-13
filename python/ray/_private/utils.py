@@ -345,6 +345,13 @@ def get_xpu_visible_devices():
     return list(xpu_ids_str.split(","))
 
 
+def get_gpu_visible_devices():
+    if ray_constants.RAY_DEVICE_CURRENT_ACCELERATOR == "CUDA":
+        return get_cuda_visible_devices()
+    elif ray_constants.RAY_DEVICE_CURRENT_ACCELERATOR == "XPU":
+        return get_xpu_visible_devices()
+
+
 def set_omp_num_threads_if_unset() -> bool:
     """Set the OMP_NUM_THREADS to default to num cpus assigned to the worker
 
@@ -418,6 +425,13 @@ def set_xpu_visible_devices(xpu_ids):
     print(f"in set_xpu_visible_devices, env var = {ids_str}")
     os.environ["XPU_VISIBLE_DEVICES"] = ids_str
     os.environ["ONEAPI_DEVICE_SELECTOR"] = ray_constants.RAY_DEVICE_XPU_BACKEND_TYPE + ":" + ids_str
+
+
+def set_gpu_visible_devices(gpu_ids):
+    if ray_constants.RAY_DEVICE_CURRENT_ACCELERATOR == "CUDA":
+        set_cuda_visible_devices(gpu_ids)
+    elif ray_constants.RAY_DEVICE_CURRENT_ACCELERATOR == "XPU":
+        set_xpu_visible_devices(gpu_ids)
 
 
 def resources_from_ray_options(options_dict: Dict[str, Any]) -> Dict[str, Any]:
