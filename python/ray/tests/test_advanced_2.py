@@ -34,7 +34,6 @@ def test_xpu_ids(shutdown_only):
     f0 = ray.remote(num_gpus=0)(lambda: get_gpu_ids(0))
     f1 = ray.remote(num_gpus=1)(lambda: get_gpu_ids(1))
     f2 = ray.remote(num_gpus=2)(lambda: get_gpu_ids(2))
-    f3 = ray.remote(num_gpus=3)(lambda: get_gpu_ids(3))
 
     # Wait for all workers to start up.
     @ray.remote

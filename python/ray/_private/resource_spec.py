@@ -180,7 +180,8 @@ class ResourceSpec(
             resources.update(gpu_types)
         elif accelerator == "XPU":  # get xpu device num
             # here we take xpu as gpu, so no need to develop core's scheduling policy
-            # If we don't want to take xpu as gpu, ray core need to develop new scheduling policy
+            # If we don't want to take xpu as gpu,
+            # ray core need to develop new scheduling policy
             num_gpus, gpu_types = _get_xpu_info(self.num_gpus)
             resources.update(gpu_types)
 
