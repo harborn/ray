@@ -20,7 +20,7 @@ from ray._private.test_utils import (
 
 from ray._private.ray_constants import RAY_ONEAPI_DEVICE_BACKEND_TYPE as XPU_BACKEND
 
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
 logger = logging.getLogger(__name__)
 

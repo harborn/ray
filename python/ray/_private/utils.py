@@ -399,8 +399,8 @@ def get_xpu_all_devices():
     """Get all xpu device IDS without ONEAPI_DEVICE_SELECTOR filter,
         But all xpu device still filtered by specific backend and device_type
     Returns:
-        devices (List[str]): list of strings representing the numeric index (zero-based),
-        with sepcific backend and device_type
+        devices (List[str]): list of strings representing
+        the numeric index (zero-based), with sepcific backend and device_type
     """
     selector = os.environ.get("ONEAPI_DEVICE_SELECTOR", None)
     # unset "ONEAPI_DEVICE_SELECTOR"
