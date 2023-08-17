@@ -425,11 +425,18 @@ class Worker:
         self.node = None
         self.mode = None
         self.actors = {}
+<<<<<<< HEAD
         # When the worker is constructed. Record the original value of the
         # (CUDA_VISIBLE_DEVICES, NEURON_RT_VISIBLE_CORES, ..) environment variables.
         self.original_gpu_and_accelerator_runtime_ids = (
             ray._private.utils.get_gpu_and_accelerator_runtime_ids()
         )
+=======
+        # When the worker is constructed.
+        # Record the original value of the CUDA_VISIBLE_DEVICES environment variable,
+        # or value of the ONEAPI_DEVICE_SELECTOR environment variable.
+        self.original_gpu_ids = ray._private.utils.get_gpu_visible_devices()
+>>>>>>> Support Intel GPU
         # A dictionary that maps from driver id to SerializationContext
         # TODO: clean up the SerializationContext once the job finished.
         self.serialization_context_map = {}
@@ -883,9 +890,7 @@ class Worker:
         return list(assigned_ids)
 
 
-@PublicAPI
-@client_mode_hook
-def get_gpu_ids():
+def get_cuda_ids():
     """Get the IDs of the GPUs that are available to the worker.
 
     If the CUDA_VISIBLE_DEVICES environment variable was set when the worker
@@ -898,9 +903,109 @@ def get_gpu_ids():
     """
     worker = global_worker
     worker.check_connected()
+<<<<<<< HEAD
     return worker.get_resource_ids_for_resource(
         ray_constants.GPU, f"^{ray_constants.GPU}_group_[0-9A-Za-z]+$"
     )
+=======
+
+    if worker.mode != WORKER_MODE:
+        if log_once("worker_get_gpu_ids_empty_from_driver"):
+            logger.warning(
+                "`ray.get_cuda_ids()` will always return the empty list when "
+                "called from the driver. This is because Ray does not manage "
+                "GPU allocations to the driver process."
+            )
+
+    # TODO(ilr) Handle inserting resources in local mode
+    all_resource_ids = global_worker.core_worker.resource_ids()
+    assigned_ids = set()
+    for resource, assignment in all_resource_ids.items():
+        # Handle both normal and placement group GPU resources.
+        # Note: We should only get the GPU ids from the placement
+        # group resource that does not contain the bundle index!
+        import re
+
+        if resource == "GPU" or re.match(r"^GPU_group_[0-9A-Za-z]+$", resource):
+            for resource_id, _ in assignment:
+                assigned_ids.add(resource_id)
+
+    assigned_ids = list(assigned_ids)
+    # If the user had already set CUDA_VISIBLE_DEVICES, then respect that (in
+    # the sense that only GPU IDs that appear in CUDA_VISIBLE_DEVICES should be
+    # returned).
+    if global_worker.original_gpu_ids is not None:
+        assigned_ids = [
+            global_worker.original_gpu_ids[gpu_id] for gpu_id in assigned_ids
+        ]
+        # Give all GPUs in local_mode.
+        if global_worker.mode == LOCAL_MODE:
+            max_gpus = global_worker.node.get_resource_spec().num_gpus
+            assigned_ids = global_worker.original_gpu_ids[:max_gpus]
+
+    return assigned_ids
+>>>>>>> Support Intel GPU
+
+
+def get_xpu_ids():
+    """Get the IDs of the XPUs that are available to the worker.
+
+    If the ONEAPI_DEVICE_SELECTOR environment variable was set before the worker
+    started up, then the IDs returned by this method will be a subset of the
+    IDs in ONEAPI_DEVICE_SELECTOR. If not, the IDs will fall in the range
+    [0, NUM_GPUS - 1], where NUM_GPUS is the number of GPUs that the node has.
+
+    Returns:
+        A list of XPU IDs
+    """
+    worker = global_worker
+    worker.check_connected()
+
+    if worker.mode != WORKER_MODE:
+        if log_once("worker_get_gpu_ids_empty_from_driver"):
+            logger.warning(
+                "`ray.get_xpu_ids()` will always return the empty list when "
+                "called from the driver. This is because Ray does not manage "
+                "XPU allocations to the driver process."
+            )
+
+    # Get all resources from global core worker
+    all_resource_ids = global_worker.core_worker.resource_ids()
+    assigned_ids = set()
+    for resource, assignment in all_resource_ids.items():
+        # Handle both normal and placement group GPU resources.
+        # Note: We should only get the GPU ids from the placement
+        # group resource that does not contain the bundle index!
+        import re
+
+        if resource == "GPU" or re.match(r"^GPU_group_[0-9A-Za-z]+$", resource):
+            for resource_id, _ in assignment:
+                assigned_ids.add(resource_id)
+    assigned_ids = list(assigned_ids)
+    # If the user had already set ONEAPI_DEVICE_SELECTOR, then respect that (in
+    # the sense that only GPU IDs that appear in ONEAPI_DEVICE_SELECTOR should be
+    # returned).
+    if global_worker.original_gpu_ids is not None:
+        assigned_ids = [
+            global_worker.original_gpu_ids[gpu_id] for gpu_id in assigned_ids
+        ]
+        # Give all GPUs in local_mode.
+        if global_worker.mode == LOCAL_MODE:
+            max_gpus = global_worker.node.get_resource_spec().num_gpus
+            assigned_ids = global_worker.original_gpu_ids[:max_gpus]
+
+    return assigned_ids
+
+
+@PublicAPI
+@client_mode_hook
+def get_gpu_ids():
+    accelerator = ray._private.utils.get_current_accelerator()
+    if accelerator == "CUDA":
+        return get_cuda_ids()
+    elif accelerator == "XPU":
+        return get_xpu_ids()
+    return []
 
 
 @Deprecated(
@@ -1492,7 +1597,6 @@ def init(
             usage_lib.show_usage_stats_prompt(cli=False)
         else:
             usage_lib.set_usage_stats_enabled_via_env_var(False)
-
         # Use a random port by not specifying Redis port / GCS server port.
         ray_params = ray._private.parameter.RayParams(
             node_ip_address=node_ip_address,
