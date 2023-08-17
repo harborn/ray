@@ -230,7 +230,9 @@ def test_omp_threads_set(ray_start_cluster, monkeypatch):
     assert ray.get(f.options(num_cpus=4).remote()) == "1"
 
 
-def test_submit_api(shutdown_only):
+@pytest.mark.parametrize("ACCELERATOR_TYPE", ["CUDA", "XPU"])
+def test_submit_api(shutdown_only, ACCELERATOR_TYPE):
+    os.environ["RAY_EXPERIMENTAL_ACCELERATOR_TYPE"] = ACCELERATOR_TYPE
     ray.init(num_cpus=2, num_gpus=1, resources={"Custom": 1})
 
     @ray.remote
@@ -537,6 +539,25 @@ print("remote", ray.get(check.remote()))
 
     run_string_as_driver(
         script, dict(os.environ, **{"RAY_EXPERIMENTAL_NOSET_CUDA_VISIBLE_DEVICES": "1"})
+    )
+
+
+def test_disable_xpu_devices():
+    script = """
+import ray
+ray.init()
+
+@ray.remote
+def check():
+    import os
+    assert "ONEAPI_DEVICE_SELECTOR" not in os.environ
+
+print("remote", ray.get(check.remote()))
+"""
+
+    run_string_as_driver(
+        script,
+        dict(os.environ, **{"RAY_EXPERIMENTAL_NOSET_ONEAPI_DEVICE_SELECTOR": "1"}),
     )
 
 
