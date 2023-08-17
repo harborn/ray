@@ -107,6 +107,7 @@ def test_xpu_ids(shutdown_only):
 
 
 def test_cuda_ids(shutdown_only):
+    os.environ["RAY_EXPERIMENTAL_ACCELERATOR_TYPE"] = "CUDA"
     num_gpus = 3
     ray.init(num_cpus=num_gpus, num_gpus=num_gpus)
 
