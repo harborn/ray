@@ -104,6 +104,7 @@ def test_xpu_ids(shutdown_only):
 
 
 def test_cuda_ids(shutdown_only):
+    os.environ["RAY_EXPERIMENTAL_ACCELERATOR_TYPE"] = "CUDA"
     num_gpus = 3
     ray.init(num_cpus=num_gpus, num_gpus=num_gpus)
 
@@ -571,6 +572,8 @@ def test_many_custom_resources(shutdown_only):
 # TODO: 5 retry attempts may be too little for Travis and we may need to
 # increase it if this test begins to be flaky on Travis.
 def test_zero_capacity_deletion_semantics(shutdown_only):
+    os.environ["RAY_EXPERIMENTAL_ACCELERATOR_TYPE"] = "CUDA"
+
     ray.init(num_cpus=2, num_gpus=1, resources={"test_resource": 1})
 
     def delete_miscellaneous_item(resources):
