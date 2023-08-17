@@ -8,8 +8,6 @@ import pytest
 import ray
 import ray.cluster_utils
 
-import ray._private.ray_constants as ray_constants
-
 try:
     import pytest_timeout
 except ImportError:
