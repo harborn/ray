@@ -918,42 +918,7 @@ def get_xpu_ids():
     return worker.get_resource_ids_for_resource(
         ray_constants.GPU, f"^{ray_constants.GPU}_group_[0-9A-Za-z]+$"
     )
-"""
-    if worker.mode != WORKER_MODE:
-        if log_once("worker_get_gpu_ids_empty_from_driver"):
-            logger.warning(
-                "`ray.get_xpu_ids()` will always return the empty list when "
-                "called from the driver. This is because Ray does not manage "
-                "XPU allocations to the driver process."
-            )
 
-    # Get all resources from global core worker
-    all_resource_ids = global_worker.core_worker.resource_ids()
-    assigned_ids = set()
-    for resource, assignment in all_resource_ids.items():
-        # Handle both normal and placement group GPU resources.
-        # Note: We should only get the GPU ids from the placement
-        # group resource that does not contain the bundle index!
-        import re
-
-        if resource == "GPU" or re.match(r"^GPU_group_[0-9A-Za-z]+$", resource):
-            for resource_id, _ in assignment:
-                assigned_ids.add(resource_id)
-    assigned_ids = list(assigned_ids)
-    # If the user had already set ONEAPI_DEVICE_SELECTOR, then respect that (in
-    # the sense that only GPU IDs that appear in ONEAPI_DEVICE_SELECTOR should be
-    # returned).
-    if global_worker.original_gpu_ids is not None:
-        assigned_ids = [
-            global_worker.original_gpu_ids[gpu_id] for gpu_id in assigned_ids
-        ]
-        # Give all GPUs in local_mode.
-        if global_worker.mode == LOCAL_MODE:
-            max_gpus = global_worker.node.get_resource_spec().num_gpus
-            assigned_ids = global_worker.original_gpu_ids[:max_gpus]
-
-    return assigned_ids
-"""
 
 @PublicAPI
 @client_mode_hook
