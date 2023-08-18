@@ -80,7 +80,9 @@ def test_actor_class_methods(ray_start_regular):
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Failing on Windows.")
-def test_actor_gpus(ray_start_cluster):
+@pytest.mark.parametrize("ACCELERATOR_TYPE", ["CUDA", "XPU"])
+def test_actor_gpus(ray_start_cluster, ACCELERATOR_TYPE):
+    os.environ["RAY_EXPERIMENTAL_ACCELERATOR_TYPE"] = ACCELERATOR_TYPE
     cluster = ray_start_cluster
     num_nodes = 3
     num_gpus_per_raylet = 4
@@ -123,7 +125,9 @@ def test_actor_gpus(ray_start_cluster):
     assert ready_ids == []
 
 
-def test_actor_multiple_gpus(ray_start_cluster):
+@pytest.mark.parametrize("ACCELERATOR_TYPE", ["CUDA", "XPU"])
+def test_actor_multiple_gpus(ray_start_cluster, ACCELERATOR_TYPE):
+    os.environ["RAY_EXPERIMENTAL_ACCELERATOR_TYPE"] = ACCELERATOR_TYPE
     cluster = ray_start_cluster
     num_nodes = 3
     num_gpus_per_raylet = 5
@@ -201,7 +205,9 @@ def test_actor_multiple_gpus(ray_start_cluster):
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Very flaky.")
-def test_actor_different_numbers_of_gpus(ray_start_cluster):
+@pytest.mark.parametrize("ACCELERATOR_TYPE", ["CUDA", "XPU"])
+def test_actor_different_numbers_of_gpus(ray_start_cluster, ACCELERATOR_TYPE):
+    os.environ["RAY_EXPERIMENTAL_ACCELERATOR_TYPE"] = ACCELERATOR_TYPE
     # Test that we can create actors on two nodes that have different
     # numbers of GPUs.
     cluster = ray_start_cluster
@@ -243,7 +249,9 @@ def test_actor_different_numbers_of_gpus(ray_start_cluster):
     assert ready_ids == []
 
 
-def test_actor_multiple_gpus_from_multiple_tasks(ray_start_cluster):
+@pytest.mark.parametrize("ACCELERATOR_TYPE", ["CUDA", "XPU"])
+def test_actor_multiple_gpus_from_multiple_tasks(ray_start_cluster, ACCELERATOR_TYPE):
+    os.environ["RAY_EXPERIMENTAL_ACCELERATOR_TYPE"] = ACCELERATOR_TYPE
     cluster = ray_start_cluster
     num_nodes = 3
     num_gpus_per_raylet = 2
@@ -320,7 +328,9 @@ def test_actor_multiple_gpus_from_multiple_tasks(ray_start_cluster):
     assert ready_ids == []
 
 
-def test_actors_and_tasks_with_gpus(ray_start_cluster):
+@pytest.mark.parametrize("ACCELERATOR_TYPE", ["CUDA", "XPU"])
+def test_actors_and_tasks_with_gpus(ray_start_cluster, ACCELERATOR_TYPE):
+    os.environ["RAY_EXPERIMENTAL_ACCELERATOR_TYPE"] = ACCELERATOR_TYPE
     cluster = ray_start_cluster
     num_nodes = 3
     num_gpus_per_raylet = 2
@@ -439,7 +449,9 @@ def test_actors_and_tasks_with_gpus(ray_start_cluster):
     assert len(ready_ids) == 0
 
 
-def test_actors_and_tasks_with_gpus_version_two(shutdown_only):
+@pytest.mark.parametrize("ACCELERATOR_TYPE", ["CUDA", "XPU"])
+def test_actors_and_tasks_with_gpus_version_two(shutdown_only, ACCELERATOR_TYPE):
+    os.environ["RAY_EXPERIMENTAL_ACCELERATOR_TYPE"] = ACCELERATOR_TYPE
     # Create tasks and actors that both use GPUs and make sure that they
     # are given different GPUs
     num_gpus = 4
@@ -616,7 +628,9 @@ def test_custom_label_placement(ray_start_cluster):
         assert location == custom_resource2_node.unique_id
 
 
-def test_creating_more_actors_than_resources(shutdown_only):
+@pytest.mark.parametrize("ACCELERATOR_TYPE", ["CUDA", "XPU"])
+def test_creating_more_actors_than_resources(shutdown_only, ACCELERATOR_TYPE):
+    os.environ["RAY_EXPERIMENTAL_ACCELERATOR_TYPE"] = ACCELERATOR_TYPE
     ray.init(num_cpus=10, num_gpus=2, resources={"CustomResource1": 1})
 
     @ray.remote(num_gpus=1)
