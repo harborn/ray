@@ -177,11 +177,11 @@ class ResourceSpec(
             num_cpus = ray._private.utils.get_num_cpus()
 
         # Get accelerate device info
-        accelerator = ray._private.utils.get_current_accelerator()
-        if accelerator == "CUDA":  # get cuda device num
+        acc_type = ray._private.utils.get_current_accelerator()
+        if acc_type == "CUDA":  # get cuda device num
             num_gpus, gpu_types = _get_cuda_info(self.num_gpus)
             resources.update(gpu_types)
-        elif accelerator == "XPU":  # get xpu device num
+        elif acc_type == "XPU":  # get xpu device num
             # here we take xpu as gpu, so no need to develop core's scheduling policy
             # If we don't want to take xpu as gpu,
             # ray core need to develop new scheduling policy
