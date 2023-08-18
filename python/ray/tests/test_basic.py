@@ -31,16 +31,16 @@ def test_http_proxy(start_http_proxy, shutdown_only):
     # run driver as a separate process to make sure the correct config value
     # is initialized.
     script = """
-import ray
-
-ray.init(num_cpus=1)
-
-@ray.remote
-def f():
-    return 1
-
-assert ray.get(f.remote()) == 1
-"""
+                import ray
+                
+                ray.init(num_cpus=1)
+                
+                @ray.remote
+                def f():
+                    return 1
+                
+                assert ray.get(f.remote()) == 1
+             """
 
     env = start_http_proxy
     run_string_as_driver(script, dict(os.environ, **env))
