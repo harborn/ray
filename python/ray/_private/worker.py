@@ -883,38 +883,19 @@ class Worker:
         return list(assigned_ids)
 
 
-def get_cuda_ids():
-    """Get the IDs of the GPUs that are available to the worker.
+def get_gpu_device_ids():
+    """Get the IDs of the GPUs or XPUs that are available to the worker.
 
-    If the CUDA_VISIBLE_DEVICES environment variable was set when the worker
-    started up, then the IDs returned by this method will be a subset of the
-    IDs in CUDA_VISIBLE_DEVICES. If not, the IDs will fall in the range
-    [0, NUM_GPUS - 1], where NUM_GPUS is the number of GPUs that the node has.
+    If the CUDA_VISIBLE_DEVICES or ONEAPI_DEVICE_SELECTOR environment variable was set when
+    the worker started up, then the IDs returned by this method will be a subset of the
+    IDs in CUDA_VISIBLE_DEVICES or ONEAPI_DEVICE_SELECTOR. If not, the IDs will fall in the 
+    range [0, NUM_GPUS - 1], where NUM_GPUS is the number of GPUs or XPUs that the node has.
 
     Returns:
-        A list of GPU IDs.
+        A list of GPU or XPU IDs.
     """
     worker = global_worker
     worker.check_connected()
-    return worker.get_resource_ids_for_resource(
-        ray_constants.GPU, f"^{ray_constants.GPU}_group_[0-9A-Za-z]+$"
-    )
-
-
-def get_xpu_ids():
-    """Get the IDs of the XPUs that are available to the worker.
-
-    If the ONEAPI_DEVICE_SELECTOR environment variable was set before the worker
-    started up, then the IDs returned by this method will be a subset of the
-    IDs in ONEAPI_DEVICE_SELECTOR. If not, the IDs will fall in the range
-    [0, NUM_GPUS - 1], where NUM_GPUS is the number of GPUs that the node has.
-
-    Returns:
-        A list of XPU IDs
-    """
-    worker = global_worker
-    worker.check_connected()
-
     return worker.get_resource_ids_for_resource(
         ray_constants.GPU, f"^{ray_constants.GPU}_group_[0-9A-Za-z]+$"
     )
@@ -924,10 +905,8 @@ def get_xpu_ids():
 @client_mode_hook
 def get_gpu_ids():
     accelerator = ray._private.utils.get_current_accelerator()
-    if accelerator == "CUDA":
-        return get_cuda_ids()
-    elif accelerator == "XPU":
-        return get_xpu_ids()
+    if accelerator in ["CUDA","XPU"]:
+        return get_gpu_device_ids()
     return []
 
 
