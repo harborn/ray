@@ -332,6 +332,9 @@ def shutdown_only(maybe_external_redis):
     # Delete the cluster address just in case.
     ray._private.utils.reset_ray_address()
 
+    if "RAY_EXPERIMENTAL_ACCELERATOR_TYPE" in os.environ:
+        del os.environ["RAY_EXPERIMENTAL_ACCELERATOR_TYPE"]
+
 
 @pytest.fixture
 def propagate_logs():

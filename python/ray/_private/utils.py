@@ -33,6 +33,7 @@ from typing import (
     Union,
     Coroutine,
     List,
+    Mapping,
 )
 
 # Import psutil after ray so the packaged version is used.
@@ -47,7 +48,6 @@ from ray.core.generated.runtime_env_common_pb2 import (
 
 if TYPE_CHECKING:
     from ray.runtime_env import RuntimeEnv
-
 
 pwd = None
 if sys.platform != "win32":
@@ -64,14 +64,12 @@ linux_prctl = None
 win32_job = None
 win32_AssignProcessToJobObject = None
 
-
 ENV_DISABLE_DOCKER_CPU_WARNING = "RAY_DISABLE_DOCKER_CPU_WARNING" in os.environ
 _PYARROW_VERSION = None
 
 # This global variable is used for testing only
 _CALLED_FREQ = defaultdict(lambda: 0)
 _CALLED_FREQ_LOCK = threading.Lock()
-
 
 PLACEMENT_GROUP_INDEXED_BUNDLED_RESOURCE_PATTERN = re.compile(
     r"(.+)_group_(\d+)_([0-9a-zA-Z]+)"
@@ -278,30 +276,157 @@ def compute_driver_id_from_job(job_id):
     return ray.WorkerID(driver_id_str)
 
 
-def get_cuda_visible_devices():
-    """Get the device IDs in the CUDA_VISIBLE_DEVICES environment variable.
+def get_gpu_and_accelerator_runtime_ids() -> Mapping[str, Optional[List[str]]]:
+    """
+    Get the device IDs of GPUs (CUDA), accelerators(NeuronCore) using
+    (CUDA_VISIBLE_DEVICES, NEURON_RT_VISIBLE_CORES) environment variables.
 
     Returns:
-        devices (List[str]): If CUDA_VISIBLE_DEVICES is set, returns a
-            list of strings representing the IDs of the visible GPUs.
+        A dictionary with keys:
+            - ray_constants.GPU: The list of device IDs of GPUs.
+            - ray_constants.NEURON_CORES: The list of device IDs of
+                accelerators.
+        If either of the environment variables is not set, returns None for
+        corresponding key.
+    """
+    return {
+        ray_constants.GPU: get_gpu_visible_devices(),
+        ray_constants.NEURON_CORES: get_aws_neuron_core_visible_ids(),
+    }
+
+
+def get_cuda_visible_devices() -> Optional[List[str]]:
+    """
+    Get the device IDs using CUDA_VISIBLE_DEVICES environment variable.
+
+    Returns:
+        devices (List[str]): If environment variable is set, returns a
+            list of strings representing the IDs of the visible devices.
             If it is not set or is set to NoDevFiles, returns empty list.
     """
-    gpu_ids_str = os.environ.get("CUDA_VISIBLE_DEVICES", None)
+    return _get_visible_ids(env_var=ray_constants.CUDA_VISIBLE_DEVICES_ENV_VAR)
 
-    if gpu_ids_str is None:
+
+def get_aws_neuron_core_visible_ids() -> Optional[List[str]]:
+    """
+    Get the device IDs using NEURON_RT_VISIBLE_CORES environment variable.
+
+    Returns:
+        devices (List[str]): If environment variable is set, returns a
+            list of strings representing the IDs of the visible devices.
+            If it is not set or is set to NoDevFiles, returns empty list.
+    """
+    return _get_visible_ids(env_var=ray_constants.NEURON_RT_VISIBLE_CORES_ENV_VAR)
+
+
+def _get_visible_ids(env_var: str) -> Optional[List[str]]:
+    """Get the device IDs from defined environment variable.
+    Args:
+        env_var: Environment variable (e.g., CUDA_VISIBLE_DEVICES,
+        NEURON_RT_VISIBLE_CORES) to set based on the accelerator runtime.
+
+    Returns:
+        devices (List[str]): If environment variable is set, returns a
+            list of strings representing the IDs of the visible devices or cores.
+            If it is not set or is set to NoDevFiles, returns empty list.
+    """
+    if env_var not in (
+        ray_constants.CUDA_VISIBLE_DEVICES_ENV_VAR,
+        ray_constants.NEURON_RT_VISIBLE_CORES_ENV_VAR,
+    ):
+        raise ValueError(f"Invalid environment variable {env_var} to get visible IDs.")
+    visible_ids_str = os.environ.get(env_var, None)
+
+    if visible_ids_str is None:
         return None
 
-    if gpu_ids_str == "":
+    if visible_ids_str == "":
         return []
 
-    if gpu_ids_str == "NoDevFiles":
+    if visible_ids_str == "NoDevFiles":
         return []
 
-    # GPU identifiers are given as strings representing integers or UUIDs.
-    return list(gpu_ids_str.split(","))
+    # Identifiers are given as strings representing integers or UUIDs.
+    return list(visible_ids_str.split(","))
 
 
 last_set_gpu_ids = None
+last_set_neuron_core_ids = None
+
+
+def get_xpu_devices():
+    """Get xpu device IDs by calling `dpctl` api
+        device with specific backend and device_type
+    Returns:
+        devices IDs (List[str]): return the list of string representing
+        the relative IDs filtered by
+        ONEAPI_DEVICE_SELECTOR, specific backend and device_type
+        returned visible IDs start with index 0
+    Example:
+        if ONEAPI_DEVICE_SELECTOR="level_zero:2,3,4"
+        the device IDs enumerated will be [0,1,2]
+        same with CUDA_VISIBLE_DEVICES
+    """
+    backend = ray_constants.RAY_ONEAPI_DEVICE_BACKEND_TYPE
+    device_type = ray_constants.RAY_ONEAPI_DEVICE_TYPE
+    xpu_ids = []
+    try:
+        import dpctl
+
+        for dev in dpctl.get_devices(backend=backend, device_type=device_type):
+            # device filter_string with format: "backend:device_type:relative_id"
+            xpu_ids.append(int(dev.filter_string.split(":")[-1]))
+    except ImportError:
+        ValueError("Import dpctl error, maybe dpctl not installed.")
+    return xpu_ids
+
+
+def get_xpu_visible_devices():
+    """Get xpu devices IDs filtered by ONEAPI_DEVICE_SELECTOR environment variable.
+    Returns:
+        devices (List[str]): return the list of string representing the relative IDS
+        filtered by ONEAPI_DEVICE_SELECTOR.
+    """
+    if os.environ.get("ONEAPI_DEVICE_SELECTOR", None) is None:
+        return None
+
+    xpu_ids = get_xpu_devices()
+
+    return xpu_ids
+
+
+def get_xpu_all_devices():
+    """Get all xpu device IDS without ONEAPI_DEVICE_SELECTOR filter,
+        But all xpu device still filtered by specific backend and device_type
+    Returns:
+        devices (List[str]): list of strings representing
+        the numeric index (zero-based), with sepcific backend and device_type
+    """
+    selector = os.environ.get("ONEAPI_DEVICE_SELECTOR", None)
+    # unset "ONEAPI_DEVICE_SELECTOR"
+    os.unsetenv("ONEAPI_DEVICE_SELECTOR")
+
+    xpu_ids = get_xpu_devices()
+
+    # set "ONEAPI_DEVICE_SELECTOR" value back
+    if selector is not None:
+        os.environ["ONEAPI_DEVICE_SELECTOR"] = selector
+
+    return xpu_ids
+
+
+def get_current_accelerator():
+    return os.environ.get(
+        "RAY_EXPERIMENTAL_ACCELERATOR_TYPE", ray_constants.RAY_ACCELERATOR_DEFAULT
+    )
+
+
+def get_gpu_visible_devices():
+    accelerator = get_current_accelerator()
+    if get_current_accelerator() == "XPU":
+        return get_xpu_visible_devices()
+    elif accelerator == "CUDA":
+        return get_cuda_visible_devices()
 
 
 def get_xpu_devices():
@@ -419,19 +544,46 @@ def set_omp_num_threads_if_unset() -> bool:
     return True
 
 
-def set_cuda_visible_devices(dev_ids):
+def set_cuda_visible_devices(dev_ids: List[str]):
     """Set the CUDA_VISIBLE_DEVICES environment variable.
 
     Args:
         dev_ids (List[str]): List of strings representing GPU IDs.
     """
-
     if os.environ.get(ray_constants.NOSET_CUDA_VISIBLE_DEVICES_ENV_VAR):
         return
-
     global last_set_gpu_ids
     if last_set_gpu_ids == dev_ids:
         return  # optimization: already set
+    _set_visible_ids(dev_ids, ray_constants.CUDA_VISIBLE_DEVICES_ENV_VAR)
+    last_set_gpu_ids = dev_ids
+
+
+def set_xpu_visible_devices(dev_ids: List[str]):
+    """Set the ONEAPI_DEVICE_SELECTOR environment variable.
+    Args:
+        dev_ids (List[str]): List of strings representing GPU IDs
+    """
+
+    if os.environ.get(ray_constants.NOSET_ONEAPI_DEVICE_SELECTOR_ENV_VAR):
+        return
+
+    backend = ray_constants.RAY_ONEAPI_DEVICE_BACKEND_TYPE
+    dev_str = ",".join([str(i) for i in dev_ids])
+    os.environ["ONEAPI_DEVICE_SELECTOR"] = backend + ":" + dev_str
+
+
+def set_gpu_visible_devices(device_ids):
+    accelerator = get_current_accelerator()
+    if accelerator == "XPU":
+        return set_xpu_visible_devices(device_ids)
+    elif accelerator == "CUDA":
+        return set_cuda_visible_devices(device_ids)
+
+
+def set_gpu_and_accelerator_runtime_ids() -> None:
+    """Set (CUDA_VISIBLE_DEVICES, NEURON_RT_VISIBLE_CORES, ..) environment variables
+    based on the accelerator runtime."""
 
     os.environ["CUDA_VISIBLE_DEVICES"] = ",".join([str(i) for i in dev_ids])
     last_set_gpu_ids = dev_ids
@@ -457,7 +609,6 @@ def set_gpu_visible_devices(device_ids):
         return set_xpu_visible_devices(device_ids)
     elif accelerator == "CUDA":
         return set_cuda_visible_devices(device_ids)
-
 
 def resources_from_ray_options(options_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Determine a task's resource requirements.

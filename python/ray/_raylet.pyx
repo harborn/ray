@@ -1819,6 +1819,7 @@ cdef execute_task_with_cancellation_handler(
     task_name = name.decode("utf-8")
     title = f"ray::{task_name}"
 
+
     # Automatically restrict the GPUs available to this task.
     ray._private.utils.set_gpu_visible_devices(ray.get_gpu_ids())
 

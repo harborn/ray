@@ -41,6 +41,28 @@ def save_gpu_ids_shutdown_only():
     else:
         del os.environ["CUDA_VISIBLE_DEVICES"]
 
+    if "RAY_EXPERIMENTAL_ACCELERATOR_TYPE" in os.environ:
+        del os.environ["RAY_EXPERIMENTAL_ACCELERATOR_TYPE"]
+
+@pytest.fixture
+def save_xpu_ids_shutdown_only():
+    # Record the curent value of this environment variable so that we can
+    # reset it after the test.
+    selector = os.environ.get("ONEAPI_DEVICE_SELECTOR", None)
+
+    yield None
+
+    # The code after the yield will run as teardown code.
+    ray.shutdown()
+    # Reset the environment variable.
+    if selector is not None:
+        os.environ["ONEAPI_DEVICE_SELECTOR"] = selector
+    else:
+        del os.environ["ONEAPI_DEVICE_SELECTOR"]
+
+    if "RAY_EXPERIMENTAL_ACCELERATOR_TYPE" in os.environ:
+        del os.environ["RAY_EXPERIMENTAL_ACCELERATOR_TYPE"]
+
 
 @pytest.fixture
 def save_xpu_ids_shutdown_only():
